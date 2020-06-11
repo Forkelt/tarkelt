@@ -29,32 +29,38 @@ struct posix_header {
 	char dev_major[8];
 	char dev_minor[8];
 	char prefix[155];
-	char pad[12];
+	char pad[12]; /* For a clean 512 bytes, avoids certain issues. */
 };
 
 
-int check_zero_block(void *memory)
+int zero_block(void *memory)
 {
 	size_t i = 0;
-	while (i < BLOCK_SIZE) {
-		if (((char*) memory)[i++]) {
+
+	while (i < BLOCK_SIZE)
+		if (((char*) memory)[i++])
 			return 0;
-		}
-	}
+
 	return 1;
 }
 
 
-int last_zero_block(FILE *fp, int blocks)
+int last_block(FILE *fp)
 {
-	char buff[512];
-	if (fread(buff, 1, 512, fp) < 512 || !check_zero_block((void*) &buff)) {
+	char buffer[BLOCK_SIZE];
+
+	if (!fread(buffer, BLOCK_SIZE, 1, fp) || !zero_block((void*) &buffer))
 		return UNEXPECTED_EOF;
-	}
-	if (feof(fp)) {
+	if (feof(fp))
 		return 0;
-	}
-	return blocks + 1;
+	
+	return 1;
+}
+
+
+static inline void block_align(FILE *fp)
+{
+	fseek(fp, (BLOCK_SIZE - ftell(fp) % BLOCK_SIZE) % BLOCK_SIZE, SEEK_CUR);
 }
 
 
@@ -62,25 +68,24 @@ int read_headers(FILE *fp)
 {
 	struct posix_header head;
 	long file_size;
-	int blocks = 0;
 
 	for (;;) {
-		if (feof(fp)) {
+		if (feof(fp))
 			return 0;
-		}
-		if (fread(&head, 1, 512, fp) < 512) {
+
+		if (!fread(&head, sizeof(head), 1, fp))
 			return UNEXPECTED_EOF;
-		}
-		if (check_zero_block((void*) &head)) {
-			return last_zero_block(fp, blocks);
-		}
+
+		block_align(fp); /* Does nothing as head is 512 bytes. */
+
+		if (zero_block((void*) &head))
+			return last_block(fp);
 
 		printf("%s\n", head.name);
 
 		sscanf(head.size, "%lo", &file_size);
-		file_size += 512 - file_size % 512;
 		fseek(fp, file_size, SEEK_CUR);
-		++blocks;
+		block_align(fp);
 	}
 }
 
@@ -89,7 +94,6 @@ int main(int argc, char *argv[])
 {
 	char *prog = argv[0];
 	char *file;
-	int truncatec = argc - 3;
 
 	if (argc < 2) {
 		fprintf(stderr, MISSING_OPTIONS, prog);
@@ -100,7 +104,7 @@ int main(int argc, char *argv[])
 		if (!strcmp(argv[i], "-f")) {
 			file = argv[++i];
 		} else if (!strcmp(argv[i], "-t")) {
-			// TODO
+			/* TODO */
 		} else {
 			fprintf(stderr, UNKNOWN_OPTION, prog, argv[i]);
 			return 2;
@@ -108,7 +112,7 @@ int main(int argc, char *argv[])
 	}
 
 	FILE *fp = fopen(file, "rb");
-	read_headers(fp);
+	int exit_code = read_headers(fp);
 	fclose(fp);
-	return 0;
+	return exit_code;
 }
