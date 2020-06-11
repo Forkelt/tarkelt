@@ -12,7 +12,7 @@
 #define MISSING_OPTIONS "%s: need at least one option\n"
 
 
-struct posix_header {
+struct header {
 	char name[100];
 	char mode[8];
 	char uid[8];
@@ -58,7 +58,7 @@ int last_block(FILE *fp)
 }
 
 
-static inline void block_align(FILE *fp)
+void block_align(FILE *fp)
 {
 	fseek(fp, (BLOCK_SIZE - ftell(fp) % BLOCK_SIZE) % BLOCK_SIZE, SEEK_CUR);
 }
@@ -66,7 +66,7 @@ static inline void block_align(FILE *fp)
 
 int read_headers(FILE *fp)
 {
-	struct posix_header head;
+	struct header head;
 	long file_size;
 
 	for (;;) {
@@ -75,8 +75,6 @@ int read_headers(FILE *fp)
 
 		if (!fread(&head, sizeof(head), 1, fp))
 			return UNEXPECTED_EOF;
-
-		block_align(fp); /* Does nothing as head is 512 bytes. */
 
 		if (zero_block((void*) &head))
 			return last_block(fp);
