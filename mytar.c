@@ -1,7 +1,8 @@
 #include <stdio.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
+
+#define EXECUTABLE "mytar"
 
 #define TAR_MAGIC "ustar" /* With null. */
 #define TAR_VERSION "00" /* No null. */
@@ -9,14 +10,14 @@
 #define VERSION_LENGTH 2
 #define BLOCK_SIZE 512
 #define UNEXPECTED_EOF_CODE 2
-#define INVALID_HEADER_CODE 2
+#define UNSUPPORTED_TYPE_CODE 2
 
 #define UNKNOWN_OPTION "%s: Unknown option: %s\n"
 #define MISSING_OPTIONS "%s: Need at least one option\n"
 #define LONE_ZERO_BLOCK "%s: A lone zero block at %d\n"
 #define FILE_NOT_FOUND "%s: %s: Not found in archive\n"
 #define NOT_FOUND_FINAL "%s: Exiting with failure status due to previous errors\n"
-#define UNSUPPORTED_HEADER "%s: Unsupported header type: %d\n"
+#define UNSUPPORTED_TYPE "%s: Unsupported header type: %d\n"
 #define UNEXPECTED_EOF "%s: Unexpected EOF in archive\n%s: Error is not recoverable: exiting now\n"
 
 
@@ -93,12 +94,9 @@ int read_headers(FILE *fp, char *prog)
 		if (zero_block((void*) &head))
 			return last_block(fp, prog, blocks);
 
-		if ((head.typeflag && head.typeflag != '0') || 
-		    (strcmp(head.magic, OLD_MAGIC) &&
-		    (strcmp(head.magic, TAR_MAGIC) ||
-		    strncmp(head.version, TAR_VERSION, VERSION_LENGTH)))) {
-			fprintf(stderr, UNSUPPORTED_HEADER, prog, blocks);
-			return INVALID_HEADER_CODE;
+		if (head.typeflag && head.typeflag != '0') {
+			fprintf(stderr, UNSUPPORTED_TYPE, prog, head.typeflag);
+			return UNSUPPORTED_TYPE_CODE;
 		}
 		
 		printf("%s\n", head.name);
@@ -112,7 +110,7 @@ int read_headers(FILE *fp, char *prog)
 
 int main(int argc, char *argv[])
 {
-	char *prog = argv[0];
+	char *prog = EXECUTABLE;
 	char *file;
 
 	if (argc < 2) {
