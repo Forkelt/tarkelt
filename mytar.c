@@ -9,7 +9,7 @@
 #define OLD_MAGIC "ustar  " /* With null. */
 #define VERSION_LENGTH 2
 #define BLOCK_SIZE 512
-#define UNEXPECTED_EOF_CODE 2
+#define UNEXPECTED_EOF_CODE -1
 #define UNSUPPORTED_TYPE_CODE 2
 
 #define UNKNOWN_OPTION "%s: Unknown option: %s\n"
@@ -42,6 +42,19 @@ struct header {
 };
 
 
+int check_eof(FILE *fp)
+{
+	int c = fgetc(fp);
+	if (feof(fp)) {
+		fputc(c, fp);
+		return 1;
+	}
+	fseek(fp, -1, SEEK_CUR);
+	fputc(c, fp);
+	return 0;
+}
+
+
 int zero_block(void *memory)
 {
 	size_t i = 0;
@@ -57,9 +70,8 @@ int zero_block(void *memory)
 int last_block(FILE *fp, char *prog, int blocks)
 {
 	char buffer[BLOCK_SIZE];
-	
-	if (feof(fp))
-		fprintf(stderr, LONE_ZERO_BLOCK, prog, blocks);
+	if (check_eof(fp))
+		fprintf(stderr, LONE_ZERO_BLOCK, prog, blocks + 1);
 	else if (!fread(buffer, BLOCK_SIZE, 1, fp))
 		return UNEXPECTED_EOF_CODE;
 	else if (!zero_block((void*) &buffer))
@@ -85,8 +97,11 @@ int read_headers(FILE *fp, char *prog)
 	for (;;) {
 		blocks = ftell(fp) / BLOCK_SIZE;
 
-		if (feof(fp))
+		if (check_eof(fp)) {
+			if (fseek(fp, -1, SEEK_CUR) || check_eof(fp))
+				return UNEXPECTED_EOF_CODE;
 			return 0;
+		}
 
 		if (!fread(&head, sizeof(head), 1, fp))
 			return UNEXPECTED_EOF_CODE;
@@ -100,10 +115,11 @@ int read_headers(FILE *fp, char *prog)
 		}
 		
 		printf("%s\n", head.name);
+		fflush(stdout);
 
 		sscanf(head.size, "%lo", &file_size);
-		if (fseek(fp, file_size, SEEK_CUR) || block_align(fp))
-			return UNEXPECTED_EOF_CODE;
+		fseek(fp, file_size, SEEK_CUR);
+		block_align(fp);
 	}
 }
 
@@ -131,6 +147,10 @@ int main(int argc, char *argv[])
 
 	FILE *fp = fopen(file, "rb");
 	int exit_code = read_headers(fp, prog);
+	if (exit_code == UNEXPECTED_EOF_CODE) {
+		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
+		exit_code = 2;
+	}
 	fclose(fp);
 	return exit_code;
 }
