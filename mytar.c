@@ -93,9 +93,10 @@ int read_headers(FILE *fp, char *prog)
 		if (zero_block((void*) &head))
 			return last_block(fp, prog, blocks);
 
-		if (strcmp(head.magic, OLD_MAGIC) &&
+		if ((head.typeflag && head.typeflag != '0') || 
+		    (strcmp(head.magic, OLD_MAGIC) &&
 		    (strcmp(head.magic, TAR_MAGIC) ||
-		     strncmp(head.version, TAR_VERSION, VERSION_LENGTH))) {
+		    strncmp(head.version, TAR_VERSION, VERSION_LENGTH)))) {
 			fprintf(stderr, UNSUPPORTED_HEADER, prog, blocks);
 			return INVALID_HEADER_CODE;
 		}
