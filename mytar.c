@@ -88,7 +88,25 @@ int block_align(FILE *fp)
 }
 
 
-int read_headers(FILE *fp, char *prog)
+void trunc_print(char *name, int trunc_count, char *trunc_files[])
+{
+	if (!trunc_count) {
+		printf("%s\n", name);
+		fflush(stdout);
+		return;
+	}
+	for (int i = 0; i < trunc_count; ++i) {
+		if (!strcmp(name, trunc_files[i])) {
+			printf("%s\n", name);
+			fflush(stdout);
+			trunc_files[i] = "";
+			return;
+		}
+	}
+}
+
+
+int read_headers(FILE *fp, char *prog, int trunc_count, char *trunc_files[])
 {
 	struct header head;
 	long file_size;
@@ -114,8 +132,7 @@ int read_headers(FILE *fp, char *prog)
 			return UNSUPPORTED_TYPE_CODE;
 		}
 		
-		printf("%s\n", head.name);
-		fflush(stdout);
+		trunc_print(head.name, trunc_count, trunc_files);
 
 		sscanf(head.size, "%lo", &file_size);
 		fseek(fp, file_size, SEEK_CUR);
@@ -128,6 +145,8 @@ int main(int argc, char *argv[])
 {
 	char *prog = EXECUTABLE;
 	char *file;
+	int trunc_count = 0;
+	char **trunc_files = NULL;
 
 	if (argc < 2) {
 		fprintf(stderr, MISSING_OPTIONS, prog);
@@ -138,19 +157,34 @@ int main(int argc, char *argv[])
 		if (!strcmp(argv[i], "-f")) {
 			file = argv[++i];
 		} else if (!strcmp(argv[i], "-t")) {
-			/* TODO */
-		} else {
+			if (argc > 4) {
+				trunc_count = argc - 4;
+				trunc_files = &argv[4];
+			}
+		} else if (argv[i][0] == '-' || !trunc_count) {
 			fprintf(stderr, UNKNOWN_OPTION, prog, argv[i]);
 			return 2;
 		}
 	}
 
 	FILE *fp = fopen(file, "rb");
-	int exit_code = read_headers(fp, prog);
+	int exit_code = read_headers(fp, prog, trunc_count, trunc_files);
 	if (exit_code == UNEXPECTED_EOF_CODE) {
 		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
 		exit_code = 2;
 	}
+
+	for (int i = 0; i < trunc_count; ++i) {
+		if (strcmp(trunc_files[i], "")) {
+			exit_code = 3;
+			fprintf(stderr, FILE_NOT_FOUND, prog, trunc_files[i]);
+		}
+	}
+	if (exit_code == 3) {
+		fprintf(stderr, NOT_FOUND_FINAL, prog);
+		exit_code = 2;
+	}
+
 	fclose(fp);
 	return exit_code;
 }
