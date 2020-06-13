@@ -1,3 +1,11 @@
+/*
+ * Copyright (C) 2020 Thomas Folkert Mol
+ * This work is free to be used, distributed, and modified under the terms of
+ * EUPL-1.2-or-later. If you did not receive a copy of this license with this
+ * source code, you can find it at
+ * https://joinup.ec.europa.eu/collection/eupl/eupl-text-eupl-12
+ * in your language of choice.
+ */
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
