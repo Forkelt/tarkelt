@@ -189,7 +189,7 @@ int main(int argc, char *argv[])
 	}
 
 	for (int i = 0; i < trunc_count; ++i) {
-		if (truncfiles[i]) {
+		if (trunc_files[i]) {
 			exit_code = 3;
 			fprintf(stderr, FILE_NOT_FOUND, prog, trunc_files[i]);
 		}
