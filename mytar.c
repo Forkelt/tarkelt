@@ -180,8 +180,10 @@ int main(int argc, char *argv[])
 	}
 
 	FILE *fp = fopen(file, "rb");
-	if (!fp)
+	if (!fp) {
 		fprintf(stderr, ARCHIVE_NOT_FOUND, prog, file, prog);
+		return 2;
+	}
 	int exit_code = read_headers(fp, prog, trunc_count, trunc_files);
 	if (exit_code == UNEXPECTED_EOF_CODE) {
 		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
