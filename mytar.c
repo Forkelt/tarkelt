@@ -26,6 +26,7 @@
 #define FILE_NOT_FOUND "%s: %s: Not found in archive\n"
 #define NOT_FOUND_FINAL "%s: Exiting with failure status due to previous errors\n"
 #define UNSUPPORTED_TYPE "%s: Unsupported header type: %d\n"
+#define ARCHIVE_NOT_FOUND "%s: %s: Cannot open: No such file or directory\n%s: Error is not recoverable: exiting now\n"
 #define UNEXPECTED_EOF "%s: Unexpected EOF in archive\n%s: Error is not recoverable: exiting now\n"
 
 
@@ -46,7 +47,10 @@ struct header {
 	char dev_major[8];
 	char dev_minor[8];
 	char prefix[155];
-	char pad[12]; /* For a clean 512 bytes; avoids certain issues. */
+	/* Pad 12 bytes for a clean 512, eases reading into buffer and checking
+	 * for zero blocks.
+	 */
+	char pad[12];
 };
 
 
@@ -176,6 +180,8 @@ int main(int argc, char *argv[])
 	}
 
 	FILE *fp = fopen(file, "rb");
+	if (!fp)
+		fprintf(stderr, ARCHIVE_NOT_FOUND, prog, file, prog);
 	int exit_code = read_headers(fp, prog, trunc_count, trunc_files);
 	if (exit_code == UNEXPECTED_EOF_CODE) {
 		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
@@ -183,7 +189,7 @@ int main(int argc, char *argv[])
 	}
 
 	for (int i = 0; i < trunc_count; ++i) {
-		if (strcmp(trunc_files[i], "")) {
+		if (truncfiles[i]) {
 			exit_code = 3;
 			fprintf(stderr, FILE_NOT_FOUND, prog, trunc_files[i]);
 		}
