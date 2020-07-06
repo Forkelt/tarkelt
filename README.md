@@ -1,5 +1,6 @@
-tarkelt
-Copyright (C) 2020 Thomas Folkert Mol
+## tarkelt
+
+Copyright (C) 2020 Thomas Folkert Mol  
 Licensed under EUPL-1.2-or-later (See License.txt)
 
 Tar implementation in C. Currently implements only -f and -t options.
