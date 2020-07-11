@@ -66,9 +66,14 @@ int check_eof(FILE *fp)
 
 
 int zero_block(void *memory)
-{
+{	
+	/* Note that this function expects a memory block of BLOCK_SIZE bytes,
+	 * feeding it a smaller block can lead to undefined behaviour or a
+	 * segmentation fault. The caller must verify that it has a fully sized
+	 * block.
+	 */
 	size_t i = 0;
-
+	
 	while (i < BLOCK_SIZE)
 		if (((char*) memory)[i++])
 			return 0;
@@ -131,7 +136,7 @@ int read_headers(FILE *fp, char *prog, int trunc_count, char *trunc_files[])
 			return 0;
 		}
 
-		if (!fread(&head, sizeof(head), 1, fp))
+		if (!fread(&head, BLOCK_SIZE, 1, fp))
 			return UNEXPECTED_EOF_CODE;
 
 		if (zero_block((void*) &head))
