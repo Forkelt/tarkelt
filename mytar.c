@@ -104,23 +104,23 @@ int block_align(FILE *fp)
 }
 
 
-void trunc_print(char *name, int trunc_count, char *trunc_files[])
+void select_print(char *name, int select_count, char *select_files[])
 {
-	if (!trunc_count) {
+	if (!select_count) {
 		printf("%s\n", name);
 		return;
 	}
-	for (int i = 0; i < trunc_count; ++i) {
-		if (!strcmp(name, trunc_files[i])) {
+	for (int i = 0; i < select_count; ++i) {
+		if (!strcmp(name, select_files[i])) {
 			printf("%s\n", name);
-			trunc_files[i] = "";
+			select_files[i] = "";
 			return;
 		}
 	}
 }
 
 
-int read_headers(FILE *fp, char *prog, int trunc_count, char *trunc_files[])
+int read_headers(FILE *fp, char *prog, int select_count, char *select_files[])
 {
 	struct header head;
 	long file_size;
@@ -146,7 +146,7 @@ int read_headers(FILE *fp, char *prog, int trunc_count, char *trunc_files[])
 			return UNSUPPORTED_TYPE_CODE;
 		}
 		
-		trunc_print(head.name, trunc_count, trunc_files);
+		select_print(head.name, select_count, select_files);
 		fflush(stdout);
 
 		sscanf(head.size, "%lo", &file_size);
@@ -160,8 +160,11 @@ int main(int argc, char *argv[])
 {
 	char *prog = EXECUTABLE;
 	char *file;
-	int trunc_count = 0;
-	char **trunc_files = NULL;
+	int extract = 0;
+	int truncate = 0;
+	int select_count = 0;
+	int verbose = 0;
+	char **select_files = NULL;
 
 	if (argc < 2) {
 		fprintf(stderr, MISSING_OPTIONS, prog);
@@ -172,11 +175,14 @@ int main(int argc, char *argv[])
 		if (!strcmp(argv[i], "-f")) {
 			file = argv[++i];
 		} else if (!strcmp(argv[i], "-t")) {
-			if (argc > 4) {
-				trunc_count = argc - 4;
-				trunc_files = &argv[4];
-			}
-		} else if (argv[i][0] == '-' || !trunc_count) {
+			truncate = 1;
+		} else if (!strcmp(argv[i], "-x")) {
+			extract = 1;
+		} else if ((truncate || extract) && argv[i][0] != '-') {
+			select_count = argc - i;
+			select_files = &argv[i];
+			break;
+		} else {
 			fprintf(stderr, UNKNOWN_OPTION, prog, argv[i]);
 			return 2;
 		}
@@ -187,16 +193,16 @@ int main(int argc, char *argv[])
 		fprintf(stderr, ARCHIVE_NOT_FOUND, prog, file, prog);
 		return 2;
 	}
-	int exit_code = read_headers(fp, prog, trunc_count, trunc_files);
+	int exit_code = read_headers(fp, prog, select_count, select_files);
 	if (exit_code == UNEXPECTED_EOF_CODE) {
 		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
 		exit_code = 2;
 	}
 
-	for (int i = 0; i < trunc_count; ++i) {
-		if (trunc_files[i]) {
+	for (int i = 0; i < select_count; ++i) {
+		if (*select_files[i]) {
 			exit_code = 3;
-			fprintf(stderr, FILE_NOT_FOUND, prog, trunc_files[i]);
+			fprintf(stderr, FILE_NOT_FOUND, prog, select_files[i]);
 		}
 	}
 	if (exit_code == 3) {
