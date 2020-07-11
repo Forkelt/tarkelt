@@ -57,10 +57,8 @@ struct header {
 int check_eof(FILE *fp)
 {
 	int c = fgetc(fp);
-	if (feof(fp)) {
-		fputc(c, fp);
+	if (c == EOF)
 		return 1;
-	}
 	fseek(fp, -1, SEEK_CUR);
 	fputc(c, fp);
 	return 0;
