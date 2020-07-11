@@ -20,6 +20,7 @@
 
 #define UNKNOWN_OPTION "%s: Unknown option: %s\n"
 #define MISSING_OPTIONS "%s: Need at least one option\n"
+#define INCOMPATIBLE_ARGUMENTS "%s: -x and -t options are incompatible, pick one.\n"
 #define LONE_ZERO_BLOCK "%s: A lone zero block at %d\n"
 #define FILE_NOT_FOUND "%s: %s: Not found in archive\n"
 #define NOT_FOUND_FINAL "%s: Exiting with failure status due to previous errors\n"
@@ -104,23 +105,23 @@ int block_align(FILE *fp)
 }
 
 
-void select_print(char *name, int select_count, char *select_files[])
+int select(char *name, int select_count, char *select_files[])
 {
-	if (!select_count) {
-		printf("%s\n", name);
-		return;
-	}
 	for (int i = 0; i < select_count; ++i) {
 		if (!strcmp(name, select_files[i])) {
-			printf("%s\n", name);
 			select_files[i] = "";
-			return;
+			return 1;
 		}
 	}
+	return 0;
 }
 
+void extract_file(FILE *fp, struct header head)
+{
+}
 
-int read_headers(FILE *fp, char *prog, int select_count, char *select_files[])
+int read_headers(FILE *fp, char *prog, int select_count, char *select_files[],
+		int verbose, int extract)
 {
 	struct header head;
 	long file_size;
@@ -146,8 +147,15 @@ int read_headers(FILE *fp, char *prog, int select_count, char *select_files[])
 			return UNSUPPORTED_TYPE_CODE;
 		}
 		
-		select_print(head.name, select_count, select_files);
-		fflush(stdout);
+		if (!select_count ||
+				select(head.name, select_count, select_files)) {
+			if (verbose) {
+				printf("%s\n", head.name);
+				fflush(stdout);
+			}
+			if (extract)
+				extract_file(fp, head);
+		}
 
 		sscanf(head.size, "%lo", &file_size);
 		fseek(fp, file_size, SEEK_CUR);
@@ -162,8 +170,8 @@ int main(int argc, char *argv[])
 	char *file;
 	int extract = 0;
 	int truncate = 0;
-	int select_count = 0;
 	int verbose = 0;
+	int select_count = 0;
 	char **select_files = NULL;
 
 	if (argc < 2) {
@@ -176,9 +184,12 @@ int main(int argc, char *argv[])
 			file = argv[++i];
 		} else if (!strcmp(argv[i], "-t")) {
 			truncate = 1;
+			verbose = 1;
 		} else if (!strcmp(argv[i], "-x")) {
 			extract = 1;
-		} else if ((truncate || extract) && argv[i][0] != '-') {
+		} else if (!strcmp(argv[i], "-v")) {
+			verbose = 1;
+		} else if ((extract || truncate) && argv[i][0] != '-') {
 			select_count = argc - i;
 			select_files = &argv[i];
 			break;
@@ -187,13 +198,18 @@ int main(int argc, char *argv[])
 			return 2;
 		}
 	}
+	if (extract && truncate) {
+		fprintf(stderr, INCOMPATIBLE_ARGUMENTS, prog);
+		return 2;
+	}
 
 	FILE *fp = fopen(file, "rb");
 	if (!fp) {
 		fprintf(stderr, ARCHIVE_NOT_FOUND, prog, file, prog);
 		return 2;
 	}
-	int exit_code = read_headers(fp, prog, select_count, select_files);
+	int exit_code = read_headers(fp, prog, select_count, select_files,
+			verbose, extract);
 	if (exit_code == UNEXPECTED_EOF_CODE) {
 		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
 		exit_code = 2;
