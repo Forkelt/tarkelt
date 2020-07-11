@@ -17,8 +17,6 @@
 #define OLD_MAGIC "ustar  " /* With null. */
 #define VERSION_LENGTH 2
 #define BLOCK_SIZE 512
-#define UNEXPECTED_EOF_CODE -1
-#define UNSUPPORTED_TYPE_CODE 2
 
 #define UNKNOWN_OPTION "%s: Unknown option: %s\n"
 #define MISSING_OPTIONS "%s: Need at least one option\n"
@@ -28,6 +26,9 @@
 #define UNSUPPORTED_TYPE "%s: Unsupported header type: %d\n"
 #define ARCHIVE_NOT_FOUND "%s: %s: Cannot open: No such file or directory\n%s: Error is not recoverable: exiting now\n"
 #define UNEXPECTED_EOF "%s: Unexpected EOF in archive\n%s: Error is not recoverable: exiting now\n"
+#define IO_ERROR "%s: I/O error upon closing file %s, written data may be lost.\n"
+
+enum { UNEXPECTED_EOF_CODE = 1, UNSUPPORTED_TYPE_CODE = 2 };
 
 
 struct header {
@@ -47,8 +48,8 @@ struct header {
 	char dev_major[8];
 	char dev_minor[8];
 	char prefix[155];
-	/* Pad 12 bytes for a clean 512, eases reading into buffer and checking
-	 * for zero blocks.
+	/* Pad 12 bytes for a clean 512 total, eases reading into buffer and
+	 * checking for zero blocks.
 	 */
 	char pad[12];
 };
@@ -99,7 +100,7 @@ int last_block(FILE *fp, char *prog, int blocks)
 int block_align(FILE *fp)
 {
 	return fseek(fp, (BLOCK_SIZE - ftell(fp) % BLOCK_SIZE) % BLOCK_SIZE, 
-		     SEEK_CUR);
+			SEEK_CUR);
 }
 
 
@@ -107,13 +108,11 @@ void trunc_print(char *name, int trunc_count, char *trunc_files[])
 {
 	if (!trunc_count) {
 		printf("%s\n", name);
-		fflush(stdout);
 		return;
 	}
 	for (int i = 0; i < trunc_count; ++i) {
 		if (!strcmp(name, trunc_files[i])) {
 			printf("%s\n", name);
-			fflush(stdout);
 			trunc_files[i] = "";
 			return;
 		}
@@ -148,6 +147,7 @@ int read_headers(FILE *fp, char *prog, int trunc_count, char *trunc_files[])
 		}
 		
 		trunc_print(head.name, trunc_count, trunc_files);
+		fflush(stdout);
 
 		sscanf(head.size, "%lo", &file_size);
 		fseek(fp, file_size, SEEK_CUR);
@@ -204,6 +204,8 @@ int main(int argc, char *argv[])
 		exit_code = 2;
 	}
 
-	fclose(fp);
-	return exit_code;
+	if (!fclose(fp))		
+		return exit_code;
+	fprintf(stderr, IO_ERROR, prog, file);
+	return 2;
 }
