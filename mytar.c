@@ -163,7 +163,7 @@ int extract_file(FILE *fp, struct header head, char *prog)
 	}
 
 close_output:
-	if (!fclose(extract_fp) || return_code == IO_ERROR_CODE) {
+	if (fclose(extract_fp) || return_code == IO_ERROR_CODE) {
 		fprintf(stderr, IO_ERROR, prog, head.name);
 	}
 	return return_code;
