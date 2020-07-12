@@ -27,7 +27,8 @@
 #define UNSUPPORTED_TYPE "%s: Unsupported header type: %d\n"
 #define ARCHIVE_NOT_FOUND "%s: %s: Cannot open: No such file or directory\n%s: Error is not recoverable: exiting now\n"
 #define UNEXPECTED_EOF "%s: Unexpected EOF in archive\n%s: Error is not recoverable: exiting now\n"
-#define IO_ERROR "%s: I/O error upon closing file %s, written data may be lost.\n"
+#define IO_ERROR "%s: I/O error with file %s, written data may be lost.\n"
+
 
 enum 
 {
