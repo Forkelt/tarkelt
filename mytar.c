@@ -148,21 +148,20 @@ int extract_file(FILE *fp, struct header head, char *prog)
 		if (!fread(buffer, read_size, 1, fp)) {
 			if (feof(fp)) {
 				return_code = UNEXPECTED_EOF_CODE;
-				goto close_output;
+				break;
 			}
 			return_code = TL_IO_ERROR_CODE;
-			goto close_output;
+			break;
 		}
 
 		if (!fwrite(buffer, read_size, 1, extract_fp)) {
 			return_code = IO_ERROR_CODE;
-			goto close_output;
+			break;
 		}
 
 		remaining_bytes -= read_size;
 	}
 
-close_output:
 	if (fclose(extract_fp) || return_code == IO_ERROR_CODE) {
 		fprintf(stderr, IO_ERROR, prog, head.name);
 	}
@@ -181,11 +180,10 @@ int read_headers(FILE *fp, char *prog, int select_count, char *select_files[],
 		blocks = ftell(fp) / BLOCK_SIZE;
 
 		if (check_eof(fp)) {
-			if (fseek(fp, -1, SEEK_CUR)) {
-				if (check_eof(fp))
-					return UNEXPECTED_EOF_CODE;
+			if (fseek(fp, -1, SEEK_CUR))
 				return TL_IO_ERROR_CODE;
-			}
+			if (check_eof(fp))
+				return UNEXPECTED_EOF_CODE;
 			return 0;
 		}
 
@@ -226,8 +224,6 @@ int read_headers(FILE *fp, char *prog, int select_count, char *select_files[],
 
 		sscanf(head.size, "%lo", &file_size);
 		if (fseek(fp, file_size, SEEK_CUR) || block_align(fp)) {
-			if (feof(fp))
-				return UNEXPECTED_EOF_CODE;
 			return TL_IO_ERROR_CODE;
 		}
 	}
