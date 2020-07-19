@@ -31,8 +31,7 @@
 #define IO_ERROR "%s: I/O error with file %s, written data may be lost.\n"
 
 
-enum 
-{
+enum {
 	NO_ERROR_CODE = 0,
 	INVALID_ARCHIVE_CODE,
 	UNEXPECTED_EOF_CODE,
@@ -60,8 +59,8 @@ struct header {
 	char dev_minor[8];
 	char prefix[155];
 	/* 
-	 * Pad 12 bytes for a clean 512 total, eases reading into buffer and
-	 * checking for zero blocks.
+	 * Pad 12 bytes for a clean 512 total, eases reading from file into
+	 * buffer and checking for zero blocks.
 	 */
 	char pad[12];
 };
@@ -132,9 +131,8 @@ int select(char *name, int select_count, char *select_files[])
 int extract_file(FILE *fp, struct header head, char *prog)
 {
 	FILE *extract_fp = fopen(head.name, "wb");
-	if (!extract_fp) {
+	if (!extract_fp)
 		return IO_ERROR_CODE;
-	}
 	
 	int return_code = 0;
 
@@ -164,11 +162,11 @@ int extract_file(FILE *fp, struct header head, char *prog)
 		remaining_bytes -= read_size;
 	}
 
-	if (fclose(extract_fp) || return_code == IO_ERROR_CODE) {
+	if (fclose(extract_fp) || return_code == IO_ERROR_CODE)
 		fprintf(stderr, IO_ERROR, prog, head.name);
-	}
 	return return_code;
 }
+
 
 int check_archive(FILE *fp)
 {
