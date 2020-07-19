@@ -21,6 +21,7 @@
 #define UNKNOWN_OPTION "%s: Unknown option: %s\n"
 #define MISSING_OPTIONS "%s: Need at least one option\n"
 #define INCOMPATIBLE_ARGUMENTS "%s: -x and -t options are incompatible, pick one.\n"
+#define INVALID_ARCHIVE "%s: This does not look like a tar archive\n%s: Exiting with failure status due to previous errors\n"
 #define LONE_ZERO_BLOCK "%s: A lone zero block at %d\n"
 #define FILE_NOT_FOUND "%s: %s: Not found in archive\n"
 #define NOT_FOUND_FINAL "%s: Exiting with failure status due to previous errors\n"
@@ -33,6 +34,7 @@
 enum 
 {
 	NO_ERROR_CODE = 0,
+	INVALID_ARCHIVE_CODE,
 	UNEXPECTED_EOF_CODE,
 	IO_ERROR_CODE, /* For extracted files. */
 	TL_IO_ERROR_CODE, /* For the input tarball. */
@@ -168,6 +170,23 @@ int extract_file(FILE *fp, struct header head, char *prog)
 	return return_code;
 }
 
+int check_archive(FILE *fp)
+{
+	struct header head;
+
+	if (!fread(&head, BLOCK_SIZE, 1, fp)) {
+		if (feof(fp))
+			return INVALID_ARCHIVE_CODE;
+		return TL_IO_ERROR_CODE;
+	}
+	
+	/* The conditions below are mutually exclusive, so using AND is fine. */
+	if (strcmp(head.magic, TAR_MAGIC) && strcmp(head.magic, OLD_MAGIC))
+		return INVALID_ARCHIVE_CODE;
+
+	return 0;
+}
+
 
 int read_headers(FILE *fp, char *prog, int select_count, char *select_files[],
 		int verbose, int extract)
@@ -175,6 +194,9 @@ int read_headers(FILE *fp, char *prog, int select_count, char *select_files[],
 	struct header head;
 	long file_size;
 	int blocks;
+
+	if (fseek(fp, 0, SEEK_SET))
+		return TL_IO_ERROR_CODE;
 
 	for (;;) {
 		blocks = ftell(fp) / BLOCK_SIZE;
@@ -281,13 +303,18 @@ int main(int argc, char *argv[])
 		fprintf(stderr, ARCHIVE_NOT_FOUND, prog, file, prog);
 		return 2;
 	}
-
-	int exit_code = read_headers(fp, prog, select_count, select_files,
-			verbose, extract);
+	
+	int exit_code;
+	if (!(exit_code = check_archive(fp)))
+		exit_code = read_headers(fp, prog, select_count, select_files,
+				verbose, extract);
 
 	switch (exit_code) {
 	case 0:
 		break;
+	case INVALID_ARCHIVE_CODE:
+		fprintf(stderr, INVALID_ARCHIVE, prog, prog);
+		goto any_error;
 	case UNEXPECTED_EOF_CODE:
 		fprintf(stderr, UNEXPECTED_EOF, prog, prog);
 		goto any_error;
