@@ -136,7 +136,7 @@ int extract_file(FILE *fp, struct header head, char *prog)
 		return IO_ERROR_CODE;
 	}
 	
-	int return_code;
+	int return_code = 0;
 
 	long remaining_bytes;
 	sscanf(head.size, "%lo", &remaining_bytes);
